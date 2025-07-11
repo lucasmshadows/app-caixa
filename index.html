@@ -3,30 +3,536 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- === METADADOS PARA WEB APP === -->
     <title>Fechamento de Caixa</title>
     <meta name="description" content="Aplicativo para fechamento de caixa diário com histórico.">
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Caixa">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" id="manifest">
     <link rel="apple-touch-icon" href="https://placehold.co/180x180/4f46e5/ffffff?text=Caixa">
+    <!-- === FIM DOS METADADOS PARA WEB APP === -->
+
+    <!-- Bibliotecas para Exportação -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
-        .tab-content { display: none; } .tab-content.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 sm:p-6 md:p-8">
-    <!-- O resto do seu HTML (corpo da aplicação) continua aqui... -->
-    <!-- (Não precisa de colar o resto aqui, o ficheiro que já tem está correto, só precisa de garantir que o <head> está como este) -->
+
+    <div class="w-full max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Fechamento de Caixa</h1>
+            <p class="text-gray-600 mt-2">Preencha os campos, salve e consulte o histórico.</p>
+        </header>
+
+        <!-- Abas de Navegação -->
+        <div class="mb-4 border-b border-gray-200">
+            <nav class="flex -mb-px" aria-label="Tabs">
+                <button id="tab-fechamento" class="tab-btn w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm text-indigo-600 border-indigo-500">
+                    Fechamento do Dia
+                </button>
+                <button id="tab-historico" class="tab-btn w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300">
+                    Histórico
+                </button>
+            </nav>
+        </div>
+
+        <!-- Conteúdo da Aba 1: Fechamento -->
+        <div id="content-fechamento" class="tab-content active">
+            <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                <div class="space-y-6">
+                    <!-- Informações Gerais -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="closingDate" class="block text-sm font-medium text-gray-700 mb-1">Data do Fechamento</label>
+                            <input type="date" id="closingDate" class="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="employeeName" class="block text-sm font-medium text-gray-700 mb-1">Nome do Funcionário</label>
+                            <input type="text" id="employeeName" placeholder="Insira o nome" class="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <!-- Caixa Inicial -->
+                    <div class="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                        <h3 class="text-xl font-bold text-purple-600 mb-3">Caixa Inicial</h3>
+                        <div>
+                            <label for="totalRetido" class="block text-sm font-medium text-gray-700 mb-1">Valor Total Retido (R$)</label>
+                            <input id="totalRetido" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                    </div>
+
+                    <!-- Caixas de Operação -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="caixa-operacao bg-blue-50 p-4 rounded-xl border border-blue-200">
+                            <h3 class="text-xl font-bold text-blue-600 mb-4">Caixa Linha 77</h3>
+                            <div class="space-y-3">
+                                <div><label for="entradas77" class="block text-sm font-medium text-gray-700 mb-1">Entradas (R$)</label><input id="entradas77" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></div>
+                                <div><label for="saidas77" class="block text-sm font-medium text-gray-700 mb-1">Saídas (R$)</label><input id="saidas77" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></div>
+                            </div>
+                            <div class="mt-6 pt-4 border-t border-blue-200"><p class="text-md font-medium text-gray-600">Saldo do Dia:</p><p id="saldoDia77" class="text-3xl font-bold text-blue-600">R$ 0,00</p></div>
+                        </div>
+                        <div class="caixa-operacao bg-green-50 p-4 rounded-xl border border-green-200">
+                            <h3 class="text-xl font-bold text-green-600 mb-4">Caixa Linha 18</h3>
+                            <div class="space-y-3">
+                                <div><label for="entradas18" class="block text-sm font-medium text-gray-700 mb-1">Entradas (R$)</label><input id="entradas18" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"></div>
+                                <div><label for="saidas18" class="block text-sm font-medium text-gray-700 mb-1">Saídas (R$)</label><input id="saidas18" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"></div>
+                            </div>
+                            <div class="mt-6 pt-4 border-t border-green-200"><p class="text-md font-medium text-gray-600">Saldo do Dia:</p><p id="saldoDia18" class="text-3xl font-bold text-green-600">R$ 0,00</p></div>
+                        </div>
+                    </div>
+
+                    <!-- Envios para Empresa -->
+                    <div class="bg-teal-50 p-4 rounded-xl border border-teal-200">
+                        <h3 class="text-xl font-bold text-teal-600 mb-3">Envios para Empresa</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div><label for="envioDinheiro" class="block text-sm font-medium text-gray-700 mb-1">Dinheiro (R$)</label><input id="envioDinheiro" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"></div>
+                            <div><label for="envioPix" class="block text-sm font-medium text-gray-700 mb-1">Pix (R$)</label><input id="envioPix" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"></div>
+                            <div><label for="envioMoeda" class="block text-sm font-medium text-gray-700 mb-1">Moeda (R$)</label><input id="envioMoeda" type="number" placeholder="0.00" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"></div>
+                        </div>
+                    </div>
+
+                    <!-- Transferências -->
+                    <div class="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                        <h3 class="text-xl font-bold text-orange-600 mb-3">Transferências</h3>
+                        <div id="listaTransferencias" class="space-y-3"></div>
+                        <button id="addTransferenciaBtn" class="mt-3 w-full bg-orange-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors">+ Adicionar Transferência</button>
+                    </div>
+
+                    <!-- Resumo Geral do Dia -->
+                    <div class="bg-gray-800 text-white p-5 rounded-xl">
+                        <h3 class="text-xl font-bold mb-3">Resumo do Dia</h3>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center"><span class="text-gray-300">Saldo Operações:</span><span id="resumoSaldoOperacoes" class="font-semibold">R$ 0,00</span></div>
+                            <div class="flex justify-between items-center"><span class="text-gray-300">(+) Valor Retido:</span><span id="resumoValorRetido" class="font-semibold">R$ 0,00</span></div>
+                            <div class="flex justify-between items-center"><span class="text-gray-300">(-) Envios:</span><span id="resumoTotalEnvios" class="font-semibold text-red-400">R$ 0,00</span></div>
+                            <div class="flex justify-between items-center"><span class="text-gray-300">(-) Transferências:</span><span id="resumoTotalTransferencias" class="font-semibold text-red-400">R$ 0,00</span></div>
+                            <div class="flex justify-between items-center text-xl pt-3 mt-2 border-t border-gray-600"><span class="font-bold">Saldo Final:</span><span id="resumoSaldoFinal" class="font-bold text-green-400">R$ 0,00</span></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botão de Salvar -->
+                    <div class="mt-6 pt-6 border-t">
+                        <button id="saveBtn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" /></svg>
+                            Salvar Fechamento
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteúdo da Aba 2: Histórico -->
+        <div id="content-historico" class="tab-content">
+             <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-lg border border-gray-200">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Histórico</h2>
+                    <div class="flex items-center gap-2">
+                         <input type="text" id="filterEmployeeName" placeholder="Filtrar por funcionário..." class="p-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                         <button id="clearHistoryBtn" class="bg-red-100 text-red-700 text-xs font-semibold py-2 px-3 rounded-lg hover:bg-red-200 transition-colors">Limpar Tudo</button>
+                    </div>
+                </div>
+                <div id="exportFilteredContainer" class="mb-4 flex flex-col sm:flex-row gap-2" style="display: none;">
+                    <button id="exportFilteredPdfBtn" class="flex-1 bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">Exportar Filtrados (PDF)</button>
+                    <button id="exportFilteredExcelBtn" class="flex-1 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Exportar Filtrados (Excel)</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionário</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo Final</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+                <p id="emptyHistoryMessage" class="text-center text-gray-500 py-8">Nenhum fechamento salvo.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- LÓGICA DO WEB APP (MANIFESTO E SERVICE WORKER) ---
+        const manifest = {
+            "name": "Fechamento de Caixa", "short_name": "Caixa", "start_url": ".", "display": "standalone",
+            "background_color": "#f3f4f6", "theme_color": "#4f46e5", "description": "Aplicativo para fechamento de caixa.",
+            "icons": [{"src": "https://placehold.co/192x192/4f46e5/ffffff?text=Caixa", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                      {"src": "https://placehold.co/512x512/4f46e5/ffffff?text=Caixa", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        document.getElementById('manifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+        if ('serviceWorker' in navigator) {
+            const swContent = `
+                const CACHE_NAME = 'caixa-cache-v13';
+                const urlsToCache = [
+                    location.href,
+                    'https://cdn.tailwindcss.com',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+                    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+                ];
+                self.addEventListener('install', event => {
+                    self.skipWaiting();
+                    event.waitUntil(
+                        caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+                    );
+                });
+                self.addEventListener('fetch', event => {
+                    event.respondWith(
+                        caches.match(event.request).then(response => response || fetch(event.request))
+                    );
+                });
+            `;
+            const swBlob = new Blob([swContent], {type: 'application/javascript'});
+            const swUrl = URL.createObjectURL(swBlob);
+
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('Service Worker registado com sucesso.'))
+                    .catch(err => console.log('Falha ao registar Service Worker:', err));
+            });
+        }
+
+        // --- LÓGICA DE CÁLCULO E UI ---
+        const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        const getInputValue = (id) => parseFloat(document.getElementById(id).value) || 0;
+        
+        const setTextColor = (element, value) => {
+            const isSaldoFinal = element.id.includes('SaldoFinal');
+            const positiveColor = isSaldoFinal ? 'text-green-400' : (element.id.includes('77') ? 'text-blue-600' : 'text-green-600');
+            const negativeColor = 'text-red-500';
+            element.classList.remove('text-green-400', 'text-blue-600', 'text-green-600', negativeColor);
+            element.classList.add(value < 0 ? negativeColor : positiveColor);
+        };
+
+        function getCalculatedValues() {
+            const saldo77 = getInputValue('entradas77') - getInputValue('saidas77');
+            const saldo18 = getInputValue('entradas18') - getInputValue('saidas18');
+            let totalTransferencias = 0;
+            document.querySelectorAll('.valor-transferencia').forEach(input => totalTransferencias += parseFloat(input.value) || 0);
+            const totalEnviado = getInputValue('envioDinheiro') + getInputValue('envioPix') + getInputValue('envioMoeda');
+            const totalRetido = getInputValue('totalRetido');
+            const saldoOperacoes = saldo77 + saldo18;
+            const saldoFinal = saldoOperacoes + totalRetido - totalTransferencias - totalEnviado;
+            return { saldo77, saldo18, totalTransferencias, totalEnviado, totalRetido, saldoOperacoes, saldoFinal };
+        }
+
+        function updateAllCalculations() {
+            const values = getCalculatedValues();
+            const saldoDia77El = document.getElementById('saldoDia77');
+            saldoDia77El.textContent = formatCurrency(values.saldo77);
+            setTextColor(saldoDia77El, values.saldo77);
+            const saldoDia18El = document.getElementById('saldoDia18');
+            saldoDia18El.textContent = formatCurrency(values.saldo18);
+            setTextColor(saldoDia18El, values.saldo18);
+            document.getElementById('resumoSaldoOperacoes').textContent = formatCurrency(values.saldoOperacoes);
+            document.getElementById('resumoValorRetido').textContent = formatCurrency(values.totalRetido);
+            document.getElementById('resumoTotalEnvios').textContent = formatCurrency(values.totalEnviado * -1);
+            document.getElementById('resumoTotalTransferencias').textContent = formatCurrency(values.totalTransferencias * -1);
+            const resumoSaldoFinalEl = document.getElementById('resumoSaldoFinal');
+            resumoSaldoFinalEl.textContent = formatCurrency(values.saldoFinal);
+            setTextColor(resumoSaldoFinalEl, values.saldoFinal);
+        }
+        
+        // --- LÓGICA DAS ABAS ---
+        const tabs = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.replace('text-indigo-600', 'text-gray-500') || t.classList.replace('border-indigo-500', 'border-transparent'));
+                tab.classList.replace('text-gray-500', 'text-indigo-600');
+                tab.classList.replace('border-transparent', 'border-indigo-500');
+                tabContents.forEach(content => content.classList.remove('active'));
+                document.getElementById(tab.id.replace('tab-', 'content-')).classList.add('active');
+            });
+        });
+
+        // --- LÓGICA DO HISTÓRICO ---
+        const historyTableBody = document.getElementById('historyTableBody');
+        const emptyHistoryMessage = document.getElementById('emptyHistoryMessage');
+        const exportFilteredContainer = document.getElementById('exportFilteredContainer');
+
+        function renderHistory(filterText = '') {
+            const history = JSON.parse(localStorage.getItem('cashClosingHistory')) || [];
+            const filteredHistory = filterText 
+                ? history.filter(record => record.employeeName.toLowerCase().includes(filterText.toLowerCase()))
+                : history;
+            
+            historyTableBody.innerHTML = '';
+
+            if (history.length === 0) {
+                emptyHistoryMessage.textContent = 'Nenhum fechamento salvo.';
+                emptyHistoryMessage.style.display = 'block';
+                document.getElementById('clearHistoryBtn').style.display = 'none';
+                exportFilteredContainer.style.display = 'none';
+            } else if (filteredHistory.length === 0) {
+                emptyHistoryMessage.textContent = 'Nenhum registo encontrado para este filtro.';
+                emptyHistoryMessage.style.display = 'block';
+                document.getElementById('clearHistoryBtn').style.display = 'block';
+                exportFilteredContainer.style.display = 'none';
+            } else {
+                emptyHistoryMessage.style.display = 'none';
+                document.getElementById('clearHistoryBtn').style.display = 'block';
+                exportFilteredContainer.style.display = 'flex';
+                filteredHistory.sort((a, b) => b.id - a.id).forEach(record => {
+                    const row = document.createElement('tr');
+                    const saldoFinalColor = record.saldoFinal < 0 ? 'text-red-600' : 'text-gray-900';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(record.closingDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">${record.employeeName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${saldoFinalColor}">${formatCurrency(record.saldoFinal)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="export-pdf-hist-btn text-red-600 hover:text-red-900 mr-3" data-id="${record.id}">PDF</button>
+                            <button class="export-excel-hist-btn text-green-600 hover:text-green-900 mr-3" data-id="${record.id}">Excel</button>
+                            <button class="delete-hist-btn text-gray-400 hover:text-gray-600" data-id="${record.id}">&times;</button>
+                        </td>
+                    `;
+                    historyTableBody.appendChild(row);
+                });
+            }
+        }
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const employeeName = document.getElementById('employeeName').value;
+            if (!employeeName) { alert('Por favor, insira o nome do funcionário.'); return; }
+            
+            const transferencias = Array.from(document.querySelectorAll('#listaTransferencias > div')).map(div => ({
+                nome: div.querySelector('.nome-transferencia').value,
+                valor: parseFloat(div.querySelector('.valor-transferencia').value) || 0
+            }));
+
+            const values = getCalculatedValues();
+            const record = { 
+                id: Date.now(), 
+                closingDate: document.getElementById('closingDate').value, 
+                employeeName, 
+                totalRetido: values.totalRetido,
+                entradas77: getInputValue('entradas77'),
+                saidas77: getInputValue('saidas77'),
+                entradas18: getInputValue('entradas18'),
+                saidas18: getInputValue('saidas18'),
+                envioDinheiro: getInputValue('envioDinheiro'),
+                envioPix: getInputValue('envioPix'),
+                envioMoeda: getInputValue('envioMoeda'),
+                transferencias,
+                saldoFinal: values.saldoFinal
+            };
+            const history = JSON.parse(localStorage.getItem('cashClosingHistory')) || [];
+            history.push(record);
+            localStorage.setItem('cashClosingHistory', JSON.stringify(history));
+            alert('Fechamento salvo com sucesso!');
+            renderHistory();
+            document.getElementById('tab-historico').click();
+        });
+        
+        historyTableBody.addEventListener('click', (e) => {
+            const id = e.target.dataset.id;
+            if (!id) return;
+            if (e.target.classList.contains('delete-hist-btn')) {
+                if (confirm('Tem a certeza que quer apagar este registo?')) {
+                    let history = JSON.parse(localStorage.getItem('cashClosingHistory')) || [];
+                    localStorage.setItem('cashClosingHistory', JSON.stringify(history.filter(r => r.id != id)));
+                    renderHistory(document.getElementById('filterEmployeeName').value);
+                }
+            } else if (e.target.classList.contains('export-pdf-hist-btn')) {
+                exportRecordToPdf(id);
+            } else if (e.target.classList.contains('export-excel-hist-btn')) {
+                exportRecordToExcel(id);
+            }
+        });
+        
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+            if (confirm('Tem a certeza que quer apagar TODO o histórico? Esta ação não pode ser desfeita.')) {
+                localStorage.removeItem('cashClosingHistory');
+                renderHistory();
+                alert('Histórico limpo com sucesso.');
+            }
+        });
+
+        document.getElementById('filterEmployeeName').addEventListener('input', (e) => renderHistory(e.target.value));
+        document.getElementById('exportFilteredPdfBtn').addEventListener('click', () => exportFilteredRecords('pdf'));
+        document.getElementById('exportFilteredExcelBtn').addEventListener('click', () => exportFilteredRecords('excel'));
+
+        document.getElementById('addTransferenciaBtn').addEventListener('click', () => {
+            const novaLinha = document.createElement('div');
+            novaLinha.className = 'flex items-center gap-2 animate-fade-in';
+            novaLinha.innerHTML = `<input type="text" placeholder="Nome do Motoqueiro" class="w-2/3 p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 nome-transferencia"><input type="number" placeholder="0.00" class="w-1/3 p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 valor-transferencia"><button class="remover-transferencia-btn bg-red-500 text-white px-2 py-1 rounded-lg hover:bg-red-600">&times;</button>`;
+            document.getElementById('listaTransferencias').appendChild(novaLinha);
+            novaLinha.querySelector('.valor-transferencia').addEventListener('input', updateAllCalculations);
+            novaLinha.querySelector('.remover-transferencia-btn').addEventListener('click', (e) => {
+                e.target.closest('.animate-fade-in').remove();
+                updateAllCalculations();
+            });
+        });
+
+        document.querySelectorAll('input').forEach(input => input.addEventListener('input', updateAllCalculations));
+        window.addEventListener('load', () => {
+            document.getElementById('closingDate').valueAsDate = new Date();
+            updateAllCalculations();
+            renderHistory();
+        });
+        
+        function getRecordById(id) {
+            return (JSON.parse(localStorage.getItem('cashClosingHistory')) || []).find(r => r.id == id);
+        }
+
+        function generatePdfPage(doc, record) {
+            const formattedDate = new Date(record.closingDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+            doc.setFontSize(18);
+            doc.text(`Fechamento de Caixa`, 105, 22, { align: 'center' });
+            doc.setFontSize(12);
+            doc.text(`Data: ${formattedDate} | Funcionário: ${record.employeeName}`, 105, 30, { align: 'center' });
+            const headStyles = { fillColor: [75, 85, 99], textColor: [255, 255, 255], fontStyle: 'bold' };
+            const subheadStyles = { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: 'bold' };
+            const saldo77 = record.entradas77 - record.saidas77;
+            const saldo18 = record.entradas18 - record.saidas18;
+            const totalEnvios = record.envioDinheiro + record.envioPix + record.envioMoeda;
+            const totalTransferencias = record.transferencias.reduce((acc, t) => acc + t.valor, 0);
+
+            doc.autoTable({ head: [['Caixa Inicial', 'Valor']], body: [['Valor Retido (Dia Anterior)', formatCurrency(record.totalRetido)]], startY: 40, theme: 'grid', headStyles, columnStyles: { 1: { halign: 'right' } } });
+            doc.autoTable({ head: [['Operações - Linha 77', 'Valor']], body: [['(+) Entradas', formatCurrency(record.entradas77)], ['(-) Saídas', formatCurrency(record.saidas77 * -1)]], foot: [['SALDO', formatCurrency(saldo77)]], startY: doc.lastAutoTable.finalY + 5, theme: 'grid', headStyles, footStyles: { ...subheadStyles, halign: 'right' }, columnStyles: { 1: { halign: 'right' } } });
+            doc.autoTable({ head: [['Operações - Linha 18', 'Valor']], body: [['(+) Entradas', formatCurrency(record.entradas18)], ['(-) Saídas', formatCurrency(record.saidas18 * -1)]], foot: [['SALDO', formatCurrency(saldo18)]], startY: doc.lastAutoTable.finalY + 5, theme: 'grid', headStyles, footStyles: { ...subheadStyles, halign: 'right' }, columnStyles: { 1: { halign: 'right' } } });
+            doc.autoTable({ head: [['Envios para Empresa', 'Valor']], body: [['(-) Dinheiro', formatCurrency(record.envioDinheiro * -1)], ['(-) Pix', formatCurrency(record.envioPix * -1)], ['(-) Moeda', formatCurrency(record.envioMoeda * -1)]], foot: [['TOTAL ENVIADO', formatCurrency(totalEnvios * -1)]], startY: doc.lastAutoTable.finalY + 5, theme: 'grid', headStyles, footStyles: { ...subheadStyles, halign: 'right' }, columnStyles: { 1: { halign: 'right' } } });
+            if (record.transferencias.length > 0 && totalTransferencias > 0) {
+                doc.autoTable({ head: [['Transferências', 'Valor']], body: record.transferencias.filter(t => t.valor > 0).map(t => [`(-) ${t.nome}`, formatCurrency(t.valor * -1)]), foot: [['TOTAL TRANSFERIDO', formatCurrency(totalTransferencias * -1)]], startY: doc.lastAutoTable.finalY + 5, theme: 'grid', headStyles, footStyles: { ...subheadStyles, halign: 'right' }, columnStyles: { 1: { halign: 'right' } } });
+            }
+            doc.autoTable({ head: [['Resumo Final', '']], body: [['Saldo Operações (77 + 18)', formatCurrency(saldo77 + saldo18)], ['(+) Valor Retido', formatCurrency(record.totalRetido)], ['(-) Total Envios', formatCurrency(totalEnvios * -1)], ['(-) Total Transferências', formatCurrency(totalTransferencias * -1)], ['SALDO FINAL EM CAIXA', formatCurrency(record.saldoFinal)]], startY: doc.lastAutoTable.finalY + 10, theme: 'grid', headStyles, bodyStyles: { fontStyle: 'bold' }, columnStyles: { 0: { halign: 'right' }, 1: { halign: 'right' } }, didParseCell: data => { if (data.row.index === 4 && data.column.index === 1) { data.cell.styles.textColor = record.saldoFinal < 0 ? [220, 38, 38] : [22, 163, 74]; data.cell.styles.fontStyle = 'bold'; } } });
+        }
+
+        function exportRecordToPdf(id) {
+            const record = getRecordById(id);
+            if (!record) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            generatePdfPage(doc, record);
+            doc.save(`fechamento-${record.employeeName.replace(/ /g,'-')}-${record.closingDate}.pdf`);
+        }
+
+        function generateExcelSheetData(record) {
+            const saldo77 = record.entradas77 - record.saidas77;
+            const saldo18 = record.entradas18 - record.saidas18;
+            const totalTransferencias = record.transferencias.reduce((acc, t) => acc + t.valor, 0);
+            const totalEnvios = record.envioDinheiro + record.envioPix + record.envioMoeda;
+            
+            const sheetData = [
+                { A: 'Fechamento de Caixa', B: new Date(record.closingDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) },
+                { A: 'Funcionário', B: record.employeeName }, {},
+                { A: 'CAIXA INICIAL' }, { A: 'Valor Retido (Dia Anterior)', B: record.totalRetido }, {},
+                { A: 'OPERAÇÕES - LINHA 77' }, { A: 'Entradas', B: record.entradas77 }, { A: 'Saídas', B: record.saidas77 * -1 }, { A: 'SALDO LINHA 77', B: saldo77 }, {},
+                { A: 'OPERAÇÕES - LINHA 18' }, { A: 'Entradas', B: record.entradas18 }, { A: 'Saídas', B: record.saidas18 * -1 }, { A: 'SALDO LINHA 18', B: saldo18 }, {},
+                { A: 'ENVIOS PARA EMPRESA' }, { A: 'Dinheiro', B: record.envioDinheiro * -1 }, { A: 'Pix', B: record.envioPix * -1 }, { A: 'Moeda', B: record.envioMoeda * -1 }, { A: 'TOTAL ENVIADO', B: totalEnvios * -1 }, {},
+                { A: 'TRANSFERÊNCIAS' },
+            ];
+            record.transferencias.forEach(t => { if(t.valor > 0) sheetData.push({ A: t.nome, B: t.valor * -1 }); });
+            sheetData.push({ A: 'TOTAL TRANSFERIDO', B: totalTransferencias * -1 });
+            sheetData.push({});
+            sheetData.push({ A: 'RESUMO FINAL' });
+            sheetData.push({ A: 'SALDO FINAL EM CAIXA', B: record.saldoFinal });
+            return sheetData;
+        }
+
+        function exportRecordToExcel(id) {
+            const record = getRecordById(id);
+            if (!record) return;
+            const sheetData = generateExcelSheetData(record);
+            const ws = XLSX.utils.json_to_sheet(sheetData, { skipHeader: true });
+            ws['!cols'] = [{ wch: 40 }, { wch: 20 }];
+            const currencyFormat = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+            const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "4B5563" } } };
+            const totalStyle = { font: { bold: true } };
+            
+            let headerRows = [4, 7, 12, 17, 22];
+            let transferCount = record.transferencias.filter(t => t.valor > 0).length;
+            headerRows.push(22 + transferCount + 2); // Transferencias Total
+            headerRows.push(22 + transferCount + 4); // Resumo Final
+
+            let totalRows = [10, 15, 21];
+            totalRows.push(22 + transferCount + 1);
+            totalRows.push(22 + transferCount + 5);
+
+            headerRows.forEach(r => { const c = `A${r}`; if(ws[c]) { ws[c].s = headerStyle; ws['!merges'] = ws['!merges'] || []; ws['!merges'].push({s: {r:r-1, c:0}, e:{r:r-1, c:1}}); } });
+            totalRows.forEach(r => { const c = `A${r}`; if(ws[c]) ws[c].s = totalStyle; const c2 = `B${r}`; if(ws[c2]) ws[c2].s = totalStyle; });
+
+            for (let r = 0; r < sheetData.length; r++) {
+                const cellRefB = XLSX.utils.encode_cell({ r: r, c: 1 });
+                if (ws[cellRefB] && typeof ws[cellRefB].v === 'number') ws[cellRefB].z = currencyFormat;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Fechamento de Caixa");
+            XLSX.writeFile(wb, `fechamento-${record.employeeName.replace(/ /g,'-')}-${record.closingDate}.xlsx`);
+        }
+
+        function exportFilteredRecords(format) {
+            const filterText = document.getElementById('filterEmployeeName').value;
+            const history = JSON.parse(localStorage.getItem('cashClosingHistory')) || [];
+            const filteredHistory = filterText 
+                ? history.filter(record => record.employeeName.toLowerCase().includes(filterText.toLowerCase()))
+                : history;
+            
+            if (filteredHistory.length === 0) {
+                alert('Nenhum registo para exportar.');
+                return;
+            }
+
+            const filename = `relatorio-filtrado-${filterText || 'todos'}-${new Date().toISOString().split('T')[0]}`;
+
+            if (format === 'pdf') {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                filteredHistory.sort((a,b) => new Date(a.closingDate) - new Date(b.closingDate)).forEach((record, index) => {
+                    if (index > 0) doc.addPage();
+                    generatePdfPage(doc, record);
+                });
+                doc.save(`${filename}.pdf`);
+            } else if (format === 'excel') {
+                const wb = XLSX.utils.book_new();
+                const masterSheetData = [];
+                filteredHistory.sort((a,b) => new Date(a.closingDate) - new Date(b.closingDate)).forEach(record => {
+                    masterSheetData.push(...generateExcelSheetData(record));
+                    masterSheetData.push({}); 
+                    masterSheetData.push({}); 
+                });
+                const ws = XLSX.utils.json_to_sheet(masterSheetData, { skipHeader: true });
+                ws['!cols'] = [{ wch: 40 }, { wch: 20 }];
+                const currencyFormat = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+                for (let r = 0; r < masterSheetData.length; r++) {
+                    const cellRefB = XLSX.utils.encode_cell({ r: r, c: 1 });
+                    if (ws[cellRefB] && typeof ws[cellRefB].v === 'number') ws[cellRefB].z = currencyFormat;
+                }
+                XLSX.utils.book_append_sheet(wb, ws, "Relatório Filtrado");
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+            }
+        }
+
+    </script>
 </body>
 </html>
